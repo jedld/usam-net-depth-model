@@ -564,8 +564,8 @@ class SASegStereoCNN2(BaseSegmentationCNN):
         return self.conv(up5) * 255
     
 class SAStereoCNN2(BaselineStereoCNN):
-    def __init__(self, device, load_sam=False):
-        super(SAStereoCNN2, self).__init__()
+    def __init__(self, device):
+        super(SAStereoCNN2, self).__init__(device)
         self.down1 = nn.Sequential(
             nn.Conv2d(6, 64, kernel_size=3, stride=2, padding=1),
             nn.LeakyReLU(),
@@ -625,11 +625,8 @@ class SAStereoCNN2(BaselineStereoCNN):
             nn.Conv2d(64, 1, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid()
         )
-        self.device = deviceSAStereoCNN2
-        if load_sam:
-            sam = sam_model_registry["vit_b"](checkpoint="tmp/sam_vit_b_01ec64.pth")
-            sam.to(device)
-            self.mask_generator = SamAutomaticMaskGenerator(sam)
+        self.device = device
+
 
     def forward(self, x):
         down1 = self.down1(x)
