@@ -562,5 +562,86 @@ class SASegStereoCNN2(BaseSegmentationCNN):
         up4 = self.up4(up3) + down1
         up5 = self.up5(up4)
         return self.conv(up5) * 255
+    
+class SAStereoCNN2(BaselineStereoCNN):
+    def __init__(self, device, load_sam=False):
+        super(SAStereoCNN2, self).__init__()
+        self.down1 = nn.Sequential(
+            nn.Conv2d(6, 64, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(64))
+        self.down2 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(128))
+        self.down3 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(256)
+        )
+        self.down4 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(512)
+        )
+        self.down5 = nn.Sequential(
+            nn.Conv2d(512, 1024, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(1024)
+        )
         
+        self.self_attention = SelfAttention(1024)
+
+        self.up1 = nn.Sequential(
+            nn.ConvTranspose2d(1024, 512, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(512)
+        )
+        self.up2 = nn.Sequential(
+            nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(256)
+        )
+        self.up3 = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(128)
+        )
+        self.up4 = nn.Sequential(
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(64)
+        )
+        self.up5 = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, kernel_size=(4, 3), stride=2, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(32)
+        )
+        self.conv = nn.Sequential(
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(),
+            nn.Conv2d(64, 1, kernel_size=1, stride=1, padding=0),
+            nn.Sigmoid()
+        )
+        self.device = deviceSAStereoCNN2
+        if load_sam:
+            sam = sam_model_registry["vit_b"](checkpoint="tmp/sam_vit_b_01ec64.pth")
+            sam.to(device)
+            self.mask_generator = SamAutomaticMaskGenerator(sam)
+
+    def forward(self, x):
+        down1 = self.down1(x)
+        down2 = self.down2(down1)
+        down3 = self.down3(down2)
+        down4 = self.down4(down3)
+        down5 = self.down5(down4)
+        sa = self.self_attention(down5)    
+        up1 = self.up1(sa) + down4
+        up2 = self.up2(up1) + down3
+        up3 = self.up3(up2) + down2
+        up4 = self.up4(up3) + down1
+        up5 = self.up5(up4)
+        return self.conv(up5) * 255    
     
