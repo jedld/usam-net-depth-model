@@ -51,7 +51,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # load transforms
 transform = transform_fn()
 transform_disparity = transform_disparity_fn()
-test_transform = transform_fn()
+test_transform = test_transform_fn()
 
 
 model = BaselineStereoCNN(device)
