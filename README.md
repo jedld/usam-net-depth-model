@@ -4,6 +4,10 @@
 
 This project aims to predict the disparity maps using stereo images. Disparity maps provide information about the depth of objects in a scene, which can be useful for various computer vision applications such as 3D reconstruction, object detection, and autonomous navigation. The USAM-Net model uses segmentation maps as an additional feature that can be used to predict the disparity.
 
+![Left Image](test_images/sa_stereo_left_image.png)
+![Predicted output](test_images/sa_stereo_disparity.png)
+![Ground Truth Disparity](test_images/sa_stereo_ground_truth_disparity.png)
+
 ## Features
 
 - Input: Stereo images (left and right), Segmentation Map for Left Image using Segment Anything Model from Facebook
