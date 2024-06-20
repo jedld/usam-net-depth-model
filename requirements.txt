@@ -11,3 +11,4 @@ onnxruntime
 onnx
 torchsummary
 wandb
+pandas

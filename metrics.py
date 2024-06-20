@@ -32,7 +32,7 @@ def compute_epe(predicted_disparity, ground_truth_disparity):
     # count the number of valid pixels
     valid_pixels = mask.sum((-1, -2)).float()
     predicted_disparity = predicted_disparity * (ground_truth_disparity > 0).float()
-    return torch.mean(torch.abs(predicted_disparity - ground_truth_disparity).sum((-1, -2)) / valid_pixels)
+    return torch.mean(torch.abs(predicted_disparity - ground_truth_disparity).sum((-1, -2)) / valid_pixels).cpu().numpy()
 
 def compute_base_line_and_focal_length(calib_file_path):
     with open(calib_file_path, 'r') as f:
@@ -145,7 +145,13 @@ def evaluate_seg(model, dataloader, device, min_depth = 0, max_depth = 80, r = 4
     cv2.imwrite(f'best_{title}_image_gt_disp.png', gt_disp)
     cv2.imwrite(f'best_{title}_image.png', left_img)
 
-    return total_test_loss/len(dataloader), total_ard_values/len(dataloader), total_gd/len(dataloader), total_epe/len(dataloader), total_d1/len(dataloader)
+    test_loss = total_test_loss/len(dataloader)
+    total_ard = total_ard_values/len(dataloader)
+    total_gd = total_gd/len(dataloader)
+    total_epe = total_epe/len(dataloader)
+    total_d1 = total_d1/len(dataloader)
+
+    return test_loss, total_ard, total_gd.cpu().numpy(), total_epe, total_d1
 
 def evaluate_baseline(model, dataloader, device, min_depth = 0, max_depth = 80, r = 4, interval = 8, title='Baseline'):
     criterion = torch.nn.SmoothL1Loss()
@@ -209,7 +215,13 @@ def evaluate_baseline(model, dataloader, device, min_depth = 0, max_depth = 80, 
     cv2.imwrite(f'best_{title}_image_gt_disp.png', gt_disp)
     cv2.imwrite(f'best_{title}_image.png', left_img)
     print(f"len: {len(dataloader)}")
-    return total_test_loss/len(dataloader), total_ard_values/len(dataloader), total_gd/len(dataloader), total_epe/len(dataloader), total_d1/len(dataloader)
+    test_loss = total_test_loss/len(dataloader)
+    total_ard = total_ard_values/len(dataloader)
+    total_gd = total_gd/len(dataloader)
+    total_epe = total_epe/len(dataloader)
+    total_d1 = total_d1/len(dataloader)
+
+    return test_loss, total_ard, total_gd.cpu().numpy(), total_epe, total_d1
 
 # # Example usage
 # predicted_disp = np.random.rand(480, 640) * 10  # Example predicted disparity map
