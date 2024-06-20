@@ -31,7 +31,28 @@ This project uses the following datasets:
     pip install -r requirements.txt
     ```
 
-3. The following stereo dataset is used for training, dataset needs to be downloaded first. Place the zip files (from google drive) to the tmp/data folder
+3. The following stereo dataset is used for training, dataset needs to be downloaded first. Place the zip files (from google drive) to the tmp/data folder. The images should be organized in the following manner:
+
+```plaintext
+tmp
+├── data
+    ├── calib
+    ├── test
+    │   ├── depth_maps
+    │   ├── disparity_maps
+    │   ├── left_images
+    │   ├── left_masks
+    │   ├── right_images
+    │   └── right_masks
+    └── train
+        ├── depth_maps
+        ├── disparity_maps
+        ├── left_images
+        ├── left_masks
+        ├── left_sky_masks
+        ├── right_images
+        └── right_masks
+```
 
 4. You will need to generate the segment masks from the Segment Anything Model. Please see documentation at
 https://github.com/facebookresearch/segment-anything on how to setup segment anything. You need to download the Vit-B SAM model to the project folder. After that you can run the generate_segment_maps.py script to
