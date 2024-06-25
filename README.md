@@ -94,9 +94,9 @@ python train_seg_sa2.py --data=driving_stereo/ --wandb=true --batch-size=32 --nu
 
 | Model Type                                  | EPE   | D1 Error | GD     | L1-loss |
 |---------------------------------------------|-------|----------|--------|---------|
-| U-Net baseline (OURS)                       | 0.964 | 2.94%    | 4.17%  | 0.12    |
-| USAM-Net (Segmentation) (OURS)              | 0.924 | 2.65%    | 3.68%  | 0.115   |
-| USAM-Net (Segmentation+Attention) (OURS)    | 0.928 | 2.95%    | 3.73%  | 0.116   |
+| U-Net baseline (OURS)                       | 0.965 | 2.94%    | 4.2%  | 0.12    |
+| USAM-Net (Segmentation) (OURS)              | 0.924 | 2.65%    | 3.87%  | 0.115   |
+| USAM-Net (Segmentation+Attention) (OURS)    | 0.884 | 2.66%    | 3.6%  | 0.106  |
 | CFNet                                       | 0.98  | 1.46%    | -      | -       |
 | SegStereo                                   | 1.32  | 5.89%    | 4.78%  | -       |
 | EdgeStereo                                  | 1.19  | 3.47%    | 4.17%  | -       |
