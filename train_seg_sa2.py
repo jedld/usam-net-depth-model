@@ -52,7 +52,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 for trial in range(args.trials):
     torch.manual_seed(trial)
-    np.seed(trial)
+
     # load transforms
     transform = transform_fn()
     transform_disparity = transform_disparity_fn()
