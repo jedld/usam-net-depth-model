@@ -51,7 +51,7 @@ num_epochs = args.num_epochs
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 for trial in range(args.trials):
-    torch.seed(trial)
+    torch.manual_seed(trial)
     np.seed(trial)
     # load transforms
     transform = transform_fn()
