@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from sa_model import SASegStereoCNN2
 from tqdm import tqdm
 from torchsummary import summary
+import numpy as np
 import argparse
 from dataset import StereoSegmentationDataset
 from metrics import calculate_ard_and_gd
@@ -33,6 +34,7 @@ parser.add_argument('--sky-mask', type=bool, default=False, help='Use the sky ma
 parser.add_argument('--finetune', type=bool, default=False, help='Finetune mode')
 parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
 parser.add_argument('--weight-decay', type=float, default=0.0001, help='Weight decay')
+parser.add_argument('--trials', type=int, default=1, help='Number of trials')
 
 args = parser.parse_args()
 
@@ -48,163 +50,166 @@ num_epochs = args.num_epochs
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# load transforms
-transform = transform_fn()
-transform_disparity = transform_disparity_fn()
-transform_segmentation = transform_seg_fn()
+for trial in range(args.trials):
+    torch.seed(trial)
+    np.seed(trial)
+    # load transforms
+    transform = transform_fn()
+    transform_disparity = transform_disparity_fn()
+    transform_segmentation = transform_seg_fn()
 
-test_transform = test_transform_fn()
-test_transform_segmentation = test_transform_seg_fn()
+    test_transform = test_transform_fn()
+    test_transform_segmentation = test_transform_seg_fn()
 
-model = SASegStereoCNN2(device)
-model.to(device)
+    model = SASegStereoCNN2(device)
+    model.to(device)
 
-summary(model, (9, 400, 879))
+    summary(model, (9, 400, 879))
 
-# if os.path.exists('stereo_cnn_seg_checkpoint.pth'):
-#     model.load_state_dict(torch.load('stereo_cnn_seg_checkpoint.pth'))
-if args.finetune and os.path.exists('best_stereo_cnn_sa_seg2.pth'):
-    print("loading existing model for finetune...")
-    model.load_state_dict(torch.load('best_stereo_cnn_sa_seg2.pth'))
-    args.aa_bottomslice = False
-    args.sky_mask = False
+    # if os.path.exists('stereo_cnn_seg_checkpoint.pth'):
+    #     model.load_state_dict(torch.load('stereo_cnn_seg_checkpoint.pth'))
+    # if args.finetune and os.path.exists('best_stereo_cnn_sa_seg2.pth'):
+    #     print("loading existing model for finetune...")
+    #     model.load_state_dict(torch.load('best_stereo_cnn_sa_seg2.pth'))
+    #     args.aa_bottomslice = False
+    #     args.sky_mask = False
 
-# load the train images and disparity maps
-dataset = StereoSegmentationDataset(f'{data_set_folder}/train/left_images',
-                        f'{data_set_folder}/train/right_images',
-                        f'{data_set_folder}/train/left_masks',
-                        f'{data_set_folder}/train/disparity_maps',
-                        f'{data_set_folder}/train/depth_maps',
-                        f'calib/train/half-image-calib',
-                        sky_mask_folder=f'{data_set_folder}/train/left_sky_masks',
-                        transform=transform,
-                        transform_disparity=transform_disparity,
-                        randomFlip=args.aa_bottomslice,
-                        transform_segmentaton=transform_segmentation
-                        )
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+    # load the train images and disparity maps
+    dataset = StereoSegmentationDataset(f'{data_set_folder}/train/left_images',
+                            f'{data_set_folder}/train/right_images',
+                            f'{data_set_folder}/train/left_masks',
+                            f'{data_set_folder}/train/disparity_maps',
+                            f'{data_set_folder}/train/depth_maps',
+                            f'calib/train/half-image-calib',
+                            sky_mask_folder=f'{data_set_folder}/train/left_sky_masks',
+                            transform=transform,
+                            transform_disparity=transform_disparity,
+                            randomFlip=args.aa_bottomslice,
+                            transform_segmentaton=transform_segmentation
+                            )
+    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
 
-# load the test images and disparity maps
-test_dataset = StereoSegmentationDataset(f'{data_set_folder}/test/left_images',
-                             f'{data_set_folder}/test/right_images',
-                             f'{data_set_folder}/test/left_masks',
-                             f'{data_set_folder}/test/disparity_maps',
-                             f'{data_set_folder}/test/depth_maps',
-                             f'calib/test/half-image-calib',
-                             transform=test_transform,
-                             transform_disparity=transform_disparity,
-                             transform_segmentaton=test_transform_segmentation)
+    # load the test images and disparity maps
+    test_dataset = StereoSegmentationDataset(f'{data_set_folder}/test/left_images',
+                                f'{data_set_folder}/test/right_images',
+                                f'{data_set_folder}/test/left_masks',
+                                f'{data_set_folder}/test/disparity_maps',
+                                f'{data_set_folder}/test/depth_maps',
+                                f'calib/test/half-image-calib',
+                                transform=test_transform,
+                                transform_disparity=transform_disparity,
+                                transform_segmentaton=test_transform_segmentation)
 
-test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, shuffle=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, shuffle=False)
 
-def evaluate(model, dataloader):
-    model.eval()
-    with torch.no_grad():
-        total_test_loss = 0
-        total_ard_values = 0
-        total_gd = 0
-        for left_image, right_image, left_mask, disparity_map, depth_map, focal_length, baseline in tqdm(dataloader):
-            left_image = left_image.to(device)
-            right_image = right_image.to(device)
-            left_mask = left_mask.to(device)
-            disparity_map = disparity_map.to(device)
-            focal_length = focal_length.to(device)
-            baseline = baseline.to(device)
-            depth_map = depth_map.to(device)
+    def evaluate(model, dataloader):
+        model.eval()
+        with torch.no_grad():
+            total_test_loss = 0
+            total_ard_values = 0
+            total_gd = 0
+            for left_image, right_image, left_mask, disparity_map, depth_map, focal_length, baseline in tqdm(dataloader):
+                left_image = left_image.to(device)
+                right_image = right_image.to(device)
+                left_mask = left_mask.to(device)
+                disparity_map = disparity_map.to(device)
+                focal_length = focal_length.to(device)
+                baseline = baseline.to(device)
+                depth_map = depth_map.to(device)
 
-            outputs = model(torch.cat((left_image, right_image, left_mask), 1))
-            mask = disparity_map > (0 + 1e-8)
-            outputs = outputs * mask.float()
-            test_loss = criterion(outputs, disparity_map)
-            
-            total_test_loss += test_loss.item()
+                outputs = model(torch.cat((left_image, right_image, left_mask), 1))
+                mask = disparity_map > (0 + 1e-8)
+                outputs = outputs * mask.float()
+                test_loss = criterion(outputs, disparity_map)
+                
+                total_test_loss += test_loss.item()
 
-            ard_values, gd = calculate_ard_and_gd(outputs, disparity_map, depth_map, min_depth, max_depth, r, interval, baseline, focal_length)
-            total_ard_values += ard_values
-            total_gd += gd
-    return total_test_loss/len(dataloader), total_ard_values/len(dataloader), total_gd/len(dataloader)
+                ard_values, gd = calculate_ard_and_gd(outputs, disparity_map, depth_map, min_depth, max_depth, r, interval, baseline, focal_length)
+                total_ard_values += ard_values
+                total_gd += gd
+        return total_test_loss/len(dataloader), total_ard_values/len(dataloader), total_gd/len(dataloader)
 
-# define the loss function and the optimizer
-criterion = torch.nn.SmoothL1Loss()
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
+    # define the loss function and the optimizer
+    criterion = torch.nn.SmoothL1Loss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
 
-if not args.finetune and os.path.exists('stereo_sa_seg2_checkpoint.pth'):
-    print("loading existing checkpoint ...")
-    checkpoint = torch.load('stereo_sa_seg2_checkpoint.pth')
-    model.load_state_dict(checkpoint['model'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    start_epoch = checkpoint['epoch']
+    # if not args.finetune and os.path.exists('stereo_sa_seg2_checkpoint.pth'):
+    #     print("loading existing checkpoint ...")
+    #     checkpoint = torch.load('stereo_sa_seg2_checkpoint.pth')
+    #     model.load_state_dict(checkpoint['model'])
+    #     optimizer.load_state_dict(checkpoint['optimizer'])
+    #     start_epoch = checkpoint['epoch']
 
-if args.wandb:
-    wandb.init(project='stereo-cnn', name='sa-segmentation-2', config=args)
-
-best_loss = 100000
-best_gd = 100000
-best_epoch = 0
-with open('ard_curves_sa_segmentation2.txt', 'w') as f:
-    total_test_loss, total_ard_values, total_gd = evaluate(model, test_dataloader)
-    best_loss = total_test_loss
-    best_gd = total_gd
-    
     if args.wandb:
-        wandb.log({'test_loss': total_test_loss, 'ard': total_ard_values, 'gd': total_gd})
+        wandb.init(project='stereo-cnn', name='sa-segmentation-2', config=args)
 
-    f.write(f"{','.join(map(str, total_ard_values.tolist()))}\n")
-
-    for epoch in range(num_epochs):
-        model.train()
-        total_loss = 0
-        for left_image, right_image, left_mask, disparity_map, depth_map, focal_length, baseline, sky_mask in tqdm(dataloader):
-            left_image = left_image.to(device)
-            right_image = right_image.to(device)
-            left_mask = left_mask.to(device)
-
-            disparity_map = disparity_map.to(device)
-            sky_mask = sky_mask.to(device)
-            depth_map = depth_map.to(device)
-
-            focal_length = focal_length.to(device)
-            baseline = baseline.to(device)
-
-            outputs = model(torch.cat((left_image, right_image, left_mask), 1))
-
-            if args.sky_mask:
-                mask = (disparity_map > 1e-8) | (sky_mask > 1e-8) 
-            else:
-                mask = disparity_map > 1e-8
-
-            outputs = outputs * mask.float()
-
-            loss = criterion(outputs, disparity_map)
-            
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-
-        lr_scheduler.step()
-        
-
+    best_loss = 100000
+    best_gd = 100000
+    best_epoch = 0
+    with open(f'ard_curves_sa_segmentation2_{trial}.txt', 'w') as f:
         total_test_loss, total_ard_values, total_gd = evaluate(model, test_dataloader)
-        f.write(f"{','.join(map(str, total_ard_values.tolist()))}\n")
-        f.flush()
-        if total_test_loss < best_loss:
-            best_loss = total_test_loss
-            best_epoch = epoch
-            best_gd = total_gd
-            print(f'Saving best model {best_loss}')
-            torch.save(model.state_dict(), 'best_stereo_cnn_sa_seg2.pth')
-
+        best_loss = total_test_loss
+        best_gd = total_gd
+        
         if args.wandb:
-            wandb.log({'train_loss': total_loss/len(dataloader),
-                       'test_loss': total_test_loss,
-                       'gd': total_gd,
-                       'ard': total_ard_values,
-                       'lr': optimizer.param_groups[0]['lr']})
-            
-        torch.save({"epoch": epoch, "model": model.state_dict(), "optimizer": optimizer.state_dict()}, f'stereo_cnn_sa_seg2_checkpoint.pth')
-        torch.save(model.state_dict(), f'stereo_cnn_sa_seg2_checkpoint_{epoch}.pth')
+            wandb.log({'test_loss': total_test_loss, 'ard': total_ard_values, 'gd': total_gd})
 
-        print(f'Epoch [{epoch+1}/{num_epochs}], Best GD: {best_gd}@{best_epoch}, Loss: {total_loss/len(dataloader)}, \
-              LR: {optimizer.param_groups[0]["lr"]} Test Loss: {total_test_loss}, ARD: {total_ard_values}, GD: {total_gd}')
+        f.write(f"{','.join(map(str, total_ard_values.tolist()))}\n")
+
+        for epoch in range(num_epochs):
+            model.train()
+            total_loss = 0
+            for left_image, right_image, left_mask, disparity_map, depth_map, focal_length, baseline, sky_mask in tqdm(dataloader):
+                left_image = left_image.to(device)
+                right_image = right_image.to(device)
+                left_mask = left_mask.to(device)
+
+                disparity_map = disparity_map.to(device)
+                sky_mask = sky_mask.to(device)
+                depth_map = depth_map.to(device)
+
+                focal_length = focal_length.to(device)
+                baseline = baseline.to(device)
+
+                outputs = model(torch.cat((left_image, right_image, left_mask), 1))
+
+                if args.sky_mask:
+                    mask = (disparity_map > 1e-8) | (sky_mask > 1e-8) 
+                else:
+                    mask = disparity_map > 1e-8
+
+                outputs = outputs * mask.float()
+
+                loss = criterion(outputs, disparity_map)
+                
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+
+            lr_scheduler.step()
+            
+
+            total_test_loss, total_ard_values, total_gd = evaluate(model, test_dataloader)
+            f.write(f"{','.join(map(str, total_ard_values.tolist()))}\n")
+            f.flush()
+            if total_test_loss < best_loss:
+                best_loss = total_test_loss
+                best_epoch = epoch
+                best_gd = total_gd
+                print(f'Saving best model {best_loss}')
+                torch.save(model.state_dict(), f'best_stereo_cnn_sa_seg2_{trial}.pth')
+
+            if args.wandb:
+                wandb.log({'train_loss': total_loss/len(dataloader),
+                        'test_loss': total_test_loss,
+                        'gd': total_gd,
+                        'ard': total_ard_values,
+                        'lr': optimizer.param_groups[0]['lr']})
+                
+            torch.save({"epoch": epoch, "model": model.state_dict(), "optimizer": optimizer.state_dict()}, f'stereo_cnn_sa_seg2_checkpoint.pth')
+            torch.save(model.state_dict(), f'stereo_cnn_sa_seg2_checkpoint_{epoch}.pth')
+
+            print(f'Epoch [{epoch+1}/{num_epochs}], Best GD: {best_gd}@{best_epoch}, Loss: {total_loss/len(dataloader)}, \
+                LR: {optimizer.param_groups[0]["lr"]} Test Loss: {total_test_loss}, ARD: {total_ard_values}, GD: {total_gd}')
